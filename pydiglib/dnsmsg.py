@@ -260,24 +260,13 @@ class DNSresponse:
         return
 
     def decode_sections(self, is_axfr=False):
-        offset = 12                     # skip over DNS header
+        offset = 12 # skip over DNS header
         answer_qname = None
-
+        json_obj = {}
         for (secname, rrcount) in zip(self.sections, 
                      [self.qdcount, self.ancount, self.nscount, self.arcount]):
-            if rrcount and (not is_axfr):
-                print("\n;; %s SECTION:" % secname)
-            if secname == "QUESTION":
-                for i in range(rrcount):
-                    rrname, rrtype, rrclass, offset = \
-                            self.decode_question(offset)
-                    answer_qname = rrname
-                    if (is_axfr):
-                        continue
-                    print("%s\t%s\t%s" % (answer_qname.text(),
-                                          qc.get_name(rrclass), 
-                                          qt.get_name(rrtype)))
-                    self.question_matched(answer_qname, rrtype, rrclass)
+            if (rrcount and (not is_axfr)) or secname == "QUESTION":
+                continue
             else:
                 for i in range(rrcount):
                     rrname, rrtype, rrclass, ttl, rdata, offset = \
@@ -285,14 +274,55 @@ class DNSresponse:
                     if (is_axfr and (secname != "ANSWER")):
                         continue
                     elif rrtype == 41:
-                        print_optrr(self.rcode, rrclass, ttl, rdata)
+                        continue
+                        # print_optrr(self.rcode, rrclass, ttl, rdata)
                     else:
-                        self.print_rr(rrname, ttl, rrtype, rrclass, rdata)
+                        print("BEN'S OUTPUT: {} {} {} {} {}".format(rrname,
+                                                                    ttl,
+                                                                    rrtype,
+                                                                    rrclass,
+                                                                    rdata))
 
     def print_all(self):
         """Print all info about the DNS response message"""
         self.print_preamble()
         self.decode_sections()
+
+
+    def serialize(self, is_axfr=False):
+        offset = 12 # skip over DNS header
+        answer_qname = None
+        json_data = {}
+        for (secname, rrcount) in zip(self.sections, 
+                     [self.qdcount, self.ancount, self.nscount, self.arcount]):
+            if rrcount and (not is_axfr):
+                pass # print("\n;; %s SECTION:" % secname)
+            if secname == "QUESTION":
+                for i in range(rrcount):
+                    rrname, rrtype, rrclass, offset = \
+                            self.decode_question(offset)
+                    answer_qname = rrname
+                    if (is_axfr):
+                        continue
+            else:
+                for i in range(rrcount):
+                    rrname, rrtype, rrclass, ttl, rdata, offset = \
+                            decode_rr(self.message, offset, options["hexrdata"])
+                    if (is_axfr and (secname != "ANSWER")) or rrtype == 41:
+                        continue
+
+                    else:
+                        domain = rrname.text()
+                        class_ = qc.get_name(rrclass)
+                        type_ = qt.get_name(rrtype)
+                        data = rdata
+                        if domain not in json_data:
+                            json_data[domain] = {}
+                        if type_ not in json_data[domain]:
+                            json_data[domain][type_] = []
+                        json_data[domain][type_].append({'rdata' : data, 'ttl': ttl})
+        print("{}".format(json_data))
+        return json_data
 
     def __repr__(self):
         return "<DNSresponse: {},{},{}>".format(

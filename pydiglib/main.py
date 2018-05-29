@@ -18,7 +18,6 @@ def main(args):
     random_init()
 
     qname, qtype, qclass = parse_args(args[1:])
-
     try:
         qtype_val = qt.get_val(qtype)
     except KeyError:
@@ -30,7 +29,7 @@ def main(args):
         raise UsageError("ERROR: invalid query class: {}\n".format(qclass))
 
     query = DNSquery(qname, qtype_val, qclass_val)
-        
+
     try:
         server_addr, port, family, socktype = \
                      get_socketparams(options["server"], options["port"],
@@ -92,11 +91,11 @@ def main(args):
             raise ErrorMessage("No response from server")
         response = DNSresponse(family, query, responsepkt)
         if not response.tc:
-            print(";; UDP response from %s, %d bytes, in %.3f sec" %
+            dprint(";; UDP response from %s, %d bytes, in %.3f sec" %
                   (responder_addr, response.msglen, (t2-t1)))
             if not is_multicast(server_addr) and \
                server_addr != "0.0.0.0" and responder_addr[0] != server_addr:
-                print("WARNING: Response from unexpected address %s" %
+                dprint("WARNING: Response from unexpected address %s" %
                       responder_addr[0])
 
     if options["use_tcp"] or (response and response.tc) \
@@ -115,8 +114,5 @@ def main(args):
             response = DNSresponse(family, query, responsepkt)
             print(";; TCP response from %s, %d bytes, in %.3f sec" %
                   ((server_addr, port), response.msglen, (t2-t1)))
-
-    response.print_all()
-    dprint("Compression pointer dereferences=%d" % Stats.compression_cnt)
-
-    return response.rcode
+    json_data = response.serialize()
+    return json_data
